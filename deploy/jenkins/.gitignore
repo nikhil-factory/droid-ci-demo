@@ -1,0 +1,10 @@
+# Terraform state contains the generated Jenkins admin password - never commit it.
+*.tfstate
+*.tfstate.*
+.terraform/
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json

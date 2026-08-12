@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+set -euxo pipefail
+
+# ---------------------------------------------------------------------------
+# Idempotency guard: only run the heavy setup once.
+# ---------------------------------------------------------------------------
+if [ -f /opt/jenkins/.provisioned ]; then
+  exit 0
+fi
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y docker.io git curl
+systemctl enable --now docker
+
+mkdir -p /opt/jenkins
+
+# ---------------------------------------------------------------------------
+# Plugins to bake into the image.
+# ---------------------------------------------------------------------------
+cat > /opt/jenkins/plugins.txt <<'PLUGINS'
+configuration-as-code
+job-dsl
+workflow-aggregator
+workflow-multibranch
+git
+github
+github-branch-source
+nodejs
+pipeline-stage-view
+junit
+timestamper
+ws-cleanup
+PLUGINS
+
+# ---------------------------------------------------------------------------
+# Jenkins Configuration-as-Code.
+# ---------------------------------------------------------------------------
+cat > /opt/jenkins/casc.yaml <<'CASC'
+jenkins:
+  systemMessage: "Droid CI demo - Jenkins (managed by Configuration-as-Code)"
+  numExecutors: 2
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "admin"
+          password: "$${JENKINS_ADMIN_PASSWORD}"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      # Anonymous read so build console logs are fetchable without auth (demo).
+      allowAnonymousRead: true
+unclassified:
+  location:
+    url: "http://$${PUBLIC_IP}:8080/"
+tool:
+  nodejs:
+    installations:
+      - name: node20
+        properties:
+          - installSource:
+              installers:
+                - nodeJSInstaller:
+                    id: "20.11.1"
+                    npmPackagesRefreshHours: 72
+jobs:
+  # Two plain pipeline jobs (git checkout, no GitHub API) so we never hit the
+  # anonymous GitHub API rate limit. Each is triggered by the GitHub webhook via
+  # the github plugin, which routes push events to jobs by matching the git URL.
+  - script: >
+      pipelineJob('${repo_name}') {
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote { url('https://github.com/${repo_owner}/${repo_name}.git') }
+                branch('*/main')
+              }
+            }
+            scriptPath('Jenkinsfile')
+            lightweight(false)
+          }
+        }
+        triggers { githubPush() }
+      }
+  - script: >
+      pipelineJob('${repo_name}-pr') {
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote { url('https://github.com/${repo_owner}/${repo_name}.git') }
+                branch('*/bug/discount-sign')
+              }
+            }
+            scriptPath('Jenkinsfile')
+            lightweight(false)
+          }
+        }
+        triggers { githubPush() }
+      }
+CASC
+
+# ---------------------------------------------------------------------------
+# Custom Jenkins image with plugins + CasC baked in.
+# ---------------------------------------------------------------------------
+cat > /opt/jenkins/Dockerfile <<'DOCKER'
+FROM jenkins/jenkins:lts-jdk17
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends xz-utils && rm -rf /var/lib/apt/lists/*
+USER jenkins
+COPY plugins.txt /usr/share/jenkins/ref/plugins.txt
+RUN jenkins-plugin-cli --plugin-file /usr/share/jenkins/ref/plugins.txt
+COPY casc.yaml /var/jenkins_conf/casc.yaml
+ENV CASC_JENKINS_CONFIG=/var/jenkins_conf/casc.yaml
+ENV JAVA_OPTS="-Djenkins.install.runSetupWizard=false"
+DOCKER
+
+docker build -t jenkins-demo /opt/jenkins
+
+docker rm -f jenkins 2>/dev/null || true
+docker run -d --restart=unless-stopped --name jenkins \
+  -p 8080:8080 -p 50000:50000 \
+  -v jenkins_home:/var/jenkins_home \
+  -e JENKINS_ADMIN_PASSWORD='${admin_password}' \
+  -e PUBLIC_IP='${public_ip}' \
+  jenkins-demo
+
+touch /opt/jenkins/.provisioned

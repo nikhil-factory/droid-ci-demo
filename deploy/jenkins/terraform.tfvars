@@ -1,0 +1,7 @@
+project_id      = "factory-development-9da77"
+region          = "us-west2"
+zone            = "us-west2-a"
+machine_type    = "e2-small"
+ssh_source_cidr = "4.19.252.98/32"
+repo_owner      = "nikhil-factory"
+repo_name       = "droid-ci-demo"

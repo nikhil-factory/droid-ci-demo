@@ -43,7 +43,7 @@ pipeline {
     always {
       // Publish Jest results (JUnit format) so failures are visible in the UI.
       junit testResults: 'reports/junit.xml', allowEmptyResults: true
-      archiveArtifacts artifacts: 'reports/junit.xml', allowEmptyArchiving: true
+      archiveArtifacts artifacts: 'reports/junit.xml', allowEmptyArchive: true
     }
   }
 }

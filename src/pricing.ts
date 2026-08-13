@@ -1,3 +1,9 @@
+/**
+ * Order pricing helpers.
+ *
+ * All monetary values are rounded to two decimal places (cents).
+ */
+
 export interface CartItem {
   name: string;
   unitPrice: number;

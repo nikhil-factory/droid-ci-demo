@@ -1,4 +1,4 @@
-import { subtotal, applyDiscount, taxFor, orderTotal, CartItem } from '../pricing';
+import { subtotal, applyDiscount, taxFor, orderTotal, itemCount, CartItem } from '../pricing';
 
 const items: CartItem[] = [
   { name: 'widget', unitPrice: 9.99, quantity: 2 },
@@ -16,6 +16,16 @@ describe('subtotal', () => {
 
   it('throws on negative quantity', () => {
     expect(() => subtotal([{ name: 'bad', unitPrice: 1, quantity: -1 }])).toThrow();
+  });
+});
+
+describe('itemCount', () => {
+  it('sums quantities across items', () => {
+    expect(itemCount(items)).toBe(3);
+  });
+
+  it('returns 0 for an empty cart', () => {
+    expect(itemCount([])).toBe(0);
   });
 });
 

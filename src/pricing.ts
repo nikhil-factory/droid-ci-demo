@@ -1,3 +1,9 @@
+/**
+ * Order pricing helpers.
+ *
+ * All monetary values are rounded to two decimal places (cents).
+ */
+
 export interface CartItem {
   name: string;
   unitPrice: number;
@@ -27,6 +33,16 @@ export function subtotal(items: CartItem[]): number {
     return sum + item.unitPrice * item.quantity;
   }, 0);
   return round2(total);
+}
+
+/** Total number of units across all items (sum of quantities). */
+export function itemCount(items: CartItem[]): number {
+  return items.reduce((count, item) => {
+    if (item.quantity < 0) {
+      throw new Error(`quantity for "${item.name}" cannot be negative`);
+    }
+    return count + item.quantity;
+  }, 0);
 }
 
 /** Apply a percentage discount to an amount. */

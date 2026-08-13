@@ -35,6 +35,16 @@ export function subtotal(items: CartItem[]): number {
   return round2(total);
 }
 
+/** Total number of units across all items (sum of quantities). */
+export function itemCount(items: CartItem[]): number {
+  return items.reduce((count, item) => {
+    if (item.quantity < 0) {
+      throw new Error(`quantity for "${item.name}" cannot be negative`);
+    }
+    return count + item.quantity;
+  }, 0);
+}
+
 /** Apply a percentage discount to an amount. */
 export function applyDiscount(amount: number, discountPercent: number): number {
   if (discountPercent < 0 || discountPercent > 100) {
